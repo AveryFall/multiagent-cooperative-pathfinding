@@ -176,9 +176,34 @@ def astar(p, verbose=False, stepwise=False):
         n = n.pere
     return path[::-1]  # extended slice notation to reverse list
 
+
 ###############################################################################
 # AUTRES ALGOS DE RESOLUTIONS...
 ###############################################################################
+
+# import grid2D as grid
+
+
+# def recalculate(player, team, curr, g):
+#     path = team[player]
+#     objectif = path[-1]
+#     p = ProblemeGrid2D(path[curr - 1], objectif, g, 'manhattan')
+#     new_path = astar(p)
+#     path[curr - 1:] = new_path
+#     team.update({player: path})
+#
+#
+# def path_slicing(M, player, team, curr, g):
+#     path = team[player]
+#     if len(path) <= curr + M:
+#         recalculate(player, team, curr, g)
+#     else:
+#         obj = path[curr + M]
+#         p = ProblemeGrid2D(path[curr - 1], obj, g, 'manhattan')
+#         new_path_splice = astar(p)
+#         path[curr - 1: curr + M + 1] = new_path_splice
+#         # print("New path with spliced :", path)
+#         team.update({player: path})
 
 
 def astar_collisions(p, verbose=False, stepwise=False):

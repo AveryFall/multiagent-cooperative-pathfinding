@@ -38,20 +38,20 @@ def init(_boardname=None):
     game = Game('Cartes/' + name + '.json', SpriteBuilder)
     game.O = Ontology(True, 'SpriteSheet-32x32/tiny_spritesheet_ontology.csv')
     game.populate_sprite_names(game.O)
-    game.fps = 2  # frames per second
+    game.fps = 1  # frames per second
     game.mainiteration()
     player = game.player
 
 
 def main():
     # for arg in sys.argv:
-    iterations = 13  # default
+    iterations = 50  # default
     if len(sys.argv) == 2:
         iterations = int(sys.argv[1])
     print("Iterations: ")
     print(iterations)
 
-    init()
+    init("exAdvCoopMap")
 
     # -------------------------------
     # Initialisation
@@ -72,11 +72,10 @@ def main():
     initStates = [o.get_rowcol() for o in game.layers['joueur']]
     print("Init states:", initStates)
 
-    half = len(initStates)//2
-    team1 = {initStates.index(x): x for x in initStates[:half]}
-    team2 = {initStates.index(x): x for x in initStates[half:]}
-    # print("t1 :", team1)
-    # team2 = [x for x in initStates[half:]]
+    team1 = {initStates.index(x): x for x in initStates[::2]}
+    team2 = {initStates.index(x): x for x in initStates[1::2]}
+    print("t1 :", team1)
+    print("t2 :", team2)
 
     # on localise tous les objets ramassables
     # sur le layer ramassable
@@ -86,29 +85,71 @@ def main():
     # on localise tous les murs
     # sur le layer obstacle
     wallStates = [w.get_rowcol() for w in game.layers['obstacle']]
+
     # print("Wall states:", wallStates)
 
     def legal_position(row, col):
         # une position legale est dans la carte et pas sur un mur
-        return ((row, col) not in wallStates) and row >= 0 and row < nbLignes and col >= 0 and col < nbCols
+        return ((row, col) not in wallStates) and 0 <= row < nbLignes and 0 <= col < nbCols
 
     # -------------------------------
     # Attributaion aleatoire des fioles 
     # -------------------------------
 
     objectifs = goalStates
+    if len(objectifs) < len(initStates):
+        raise Exception("There is not enough goals for all the players.")
     random.shuffle(objectifs)
-    # print("Objectif joueur 0", objectifs[0])
-    # print("Objectif joueur 1", objectifs[1])
-    # print("Objectif joueur 2", objectifs[2])
-    # print("Objectif joueur 3", objectifs[3])
+    # objectifs = [(0, 17), (19, 18), (19, 11), (19, 5), (0, 11), (0, 6)]
+    # objectifs = [(0, 17), (19, 11), (0, 6), (19, 5), (0, 11), (19, 18)]
+    # objectifs = [(0, 6), (19, 18), (0, 17), (19, 11), (19, 5), (0, 11)]
+    print(objectifs)
+    for o in range(len(objectifs)):
+        print("Objectif joueur", o, objectifs[o])
 
     # -------------------------------
-    # Carte demo 
-    # 2 joueurs 
-    # Joueur 0: A*
-    # Joueur 1: random walker
+    # Collision-checking handling
     # -------------------------------
+
+    colCheck = 1  # by default
+    # can be different for each team !!
+
+    # -------------------------------
+    # Path recalculation
+    # -------------------------------
+    def recalculate(player, team, curr, g):
+        path = team[player]
+        objectif = path[-1]
+        p = ProblemeGrid2D(path[curr - 1], objectif, g, 'manhattan')
+        new_path = probleme.astar(p)
+        path[curr - 1:] = new_path
+        team.update({player: path})
+
+    # -------------------------------
+    # Local-repair
+    # -------------------------------
+    def path_slicing(M, player, team, curr, g):
+        print(path)
+        if len(path) <= curr + M:
+            recalculate(player, team, curr, g)
+        else:
+            obj = path[curr + M]
+            p = ProblemeGrid2D(path[curr - 1], obj, g, 'manhattan')
+            new_path_splice = probleme.astar(p)
+            path[curr - 1: curr + M + 1] = new_path_splice
+            # print("New path with splice :", path)
+            team.update({player: path})
+            print(path)
+
+    def collision_checking(player, team, curr, g):
+        if colCheck == 0:
+            recalculate(player, team, curr, g)
+
+        if colCheck == 1:
+            M = 4
+            print("pathsplicing")
+            path_slicing(M, player, team, curr, g)
+
 
     # -------------------------------
     # calcul A* pour la team1
@@ -120,7 +161,6 @@ def main():
     for j in team1.keys():
         p = ProblemeGrid2D(initStates[j], objectifs[j], g, 'manhattan')
         team1.update({j: probleme.astar(p)})
-
 
     # -------------------------------
     # calcul A* pour la team2
@@ -147,49 +187,58 @@ def main():
 
         print("\nIteration number", i)
 
-        # ------------ Team 2 ---------------- #
+        # ------------ Team 1 ---------------- #
         todo = [x for x in team1.keys()]
         won = False
         for j in todo:
-            # make it so that it works if players are randomly put in teams!!! dict?
-            # name player and link it to all their pos/objectives... ?
+
             path = team1[j]
-            if i >= len(path):
+
+            if i >= len(path):  # if player j has reached the end of their path
                 continue
 
             row, col = path[i]
-            # what happens if row, col is objectif ???
+
             if i != 0 and (row, col) in collisions:  # if pos = (row, col) is occupied by another player b
                 block = collisions.index((row, col))  # get the player b's index
 
-                # if a and b are in same team and pos isn't objectif of b
-                if block in team1.keys() and len(team1[block]) < i:
+                # if j and b are in same team and pos isn't objectif of b
+                if block in team1.keys() and len(team1[block]) > i:
+
                     # HERE # if b is at objectif AND objectif's row, col is opti in path of a, then b should move!!
                     # ==> cooperative A* ??
 
-                    # b hasn't moved yet and b doesn't want to switch with a
-                    if team1[block][i - 1] == (row,col) and team1[block][i] != path[i-1]:
+                    # b hasn't moved yet and b doesn't want to switch position with j
+                    if team1[block][i - 1] == (row, col) and team1[block][i] != path[i - 1]:
                         todo.append(j)
                         continue
-                # also path slicing instead !!!!
-                # then ofc CA* w no crossover at the same time
+
                 print("\tPlayer", j, "cannot move there : player", collisions.index((row, col)), "at", (row, col),
                       "!!\n\tPlayer", j, "will recalculate...")
 
+                # if pos is player j's objectif
+                if (row, col) == objectifs[j]:
+                    path[i:] = path[i - 1:]  # player j waits
+                    team1.update({j: path})
+                    continue
+
                 g[(row, col)] = False
-                p = ProblemeGrid2D(path[i - 1], objectifs[j], g, 'manhattan')
-                new_path = probleme.astar(p)
-                path[i-1:] = new_path
-                team1.update({j: path})
+
+                collision_checking(j, team1, i, g)
+
                 todo.append(j)
                 continue
+
             posPlayers[j] = (row, col)
             collisions[j] = posPlayers[j]
             players[j].set_rowcol(row, col)
-            print("\tPlayer", j, "goes from", path[i-1], "to", (row, col))
+            if i == 0:
+                print("\tPlayer", j, "calculates the path to go from", initStates[j], "to", objectifs[j])
+            else:
+                print("\tPlayer", j, "goes from", path[i - 1], "to", (row, col))
             if (row, col) == objectifs[j]:
                 score[j] += 1
-                print("\nTeam 1 : player", j, "has reached their goal !")
+                print("\n---> Team 1 : player", j, "has reached their goal !\n")
 
             total = 0
             for p in team1.keys():
@@ -211,35 +260,41 @@ def main():
                 continue
 
             row, col = path[i]
-            if i != 0 and (row, col) in collisions:  # if pos = (row, col) is occupied by another player b
-                block = collisions.index((row, col))   # get the player b's index
+            if i != 0 and (row, col) in collisions:
+                block = collisions.index((row, col))
 
-                # if a and b are in same team and pos isn't objectif of b
-                if block in team2.keys() and len(team2[block]) < i:
+                if block in team2.keys() and len(team2[block]) > i:
 
-                    # if b hasn't moved yet and b doesn't want to switch with a
-                    if team2[block][i - 1] == (row,col) and team2[block][i] != path[i-1]:
+                    if team2[block][i - 1] == (row, col) and team2[block][i] != path[i - 1]:
                         todo.append(j)
                         continue
+
                 print("\tPlayer", j, "cannot move there : player", collisions.index((row, col)), "at", (row, col),
                       "!!\n\tPlayer", j, "will recalculate...")
+
+                if (row, col) == objectifs[j]:
+                    path[i:] = path[i - 1:]  # player j waits
+                    team2.update({j: path})
+                    continue
+
                 g[(row, col)] = False
-                p = ProblemeGrid2D(path[i - 1], objectifs[j], g, 'manhattan')
-                new_path = probleme.astar(p)
-                path[i-1:] = new_path
-                team2.update({j: path})
+
+                collision_checking(j, team2, i, g)
+
                 todo.append(j)
                 continue
 
             posPlayers[j] = (row, col)
             collisions[j] = posPlayers[j]
             players[j].set_rowcol(row, col)
-
-            print("\tPlayer", j, "goes from", path[i - 1], "to", (row, col))
+            if i == 0:
+                print("\tPlayer", j, "calculates the path to go from", initStates[j], "to", objectifs[j])
+            else:
+                print("\tPlayer", j, "goes from", path[i - 1], "to", (row, col))
 
             if (row, col) == objectifs[j]:
                 score[j] += 1
-                print("\nTeam 2 : player", j, "has reached their goal !")
+                print("\n---> Team 2 : player", j, "has reached their goal !\n")
 
             total = 0
             for p in team2.keys():
@@ -254,21 +309,47 @@ def main():
         # on passe a l'iteration suivante du jeu
         game.mainiteration()
 
+    # ------------ Calcul des scores ---------------- #
     print()
     dm1 = 0
+    sc1 = 0
     for p in team1.keys():
         if score[p] == 0:
             dm1 += probleme.distManhattan(posPlayers[p], objectifs[p])
+        else:
+            sc1 += 1
+
     dm2 = 0
+    sc2 = 0
     for p in team2.keys():
         if score[p] == 0:
             dm2 += probleme.distManhattan(posPlayers[p], objectifs[p])
-    if dm1 < dm2:
-        print("Team 1 has won !!")
-        print("Overall distance to its objectives is", dm1, "; whereas Team 2 is", dm2)
+        else:
+            sc2 += 1
+
+    if sc1 == sc2:
+        if dm1 < dm2:
+            print("Team 1 has won !!")
+            print("Overall distance to its objectives is", dm1, "; whereas Team 2 is", dm2)
+        elif dm2 < dm1:
+            print("Team 2 has won !!")
+            print("Overall distance to its objectives is", dm2, "; whereas Team 1 is", dm1)
+        else:
+            print("It's a draw !!")
     else:
-        print("Team 2 has won !!")
-        print("Overall distance to its objectives is", dm2, "; whereas Team 1 is", dm1)
+        if sc1 > sc2:
+            print("Team 1 has won !!")
+            if sc1 == len(team1):
+                print("Team 1's players have reached all of their goals, whereas Team 2 only reached", sc2)
+            else:
+                print("Team 1's players have reached", sc1, "of their goals, whereas Team 2 only reached", sc2)
+        else:
+            print("Team 2 has won !!")
+            if sc2 == len(team2):
+                print("Team 2's players have reached all of their goals, whereas Team 1 only reached", sc1)
+            else:
+                print("Team 2's players have reached", sc2, "of their goals, whereas Team 1 only reached", sc1)
+
     print("scores:", score)
     pygame.quit()
 
