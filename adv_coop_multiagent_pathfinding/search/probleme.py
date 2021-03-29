@@ -11,6 +11,7 @@ import heapq
 from abc import ABCMeta, abstractmethod
 import functools
 import time
+from . import grid2D
 
 
 def distManhattan(p1, p2):
@@ -125,7 +126,6 @@ def astar(p, verbose=False, stepwise=False):
 
     nodeInit = Noeud(p.init, 0, None)
     frontiere = [(nodeInit.g + p.h_value(nodeInit.etat, p.but), nodeInit)]
-
     reserve = {}
     bestNoeud = nodeInit
 
@@ -181,91 +181,103 @@ def astar(p, verbose=False, stepwise=False):
 # AUTRES ALGOS DE RESOLUTIONS...
 ###############################################################################
 
-# import grid2D as grid
+# Greedy-Best First
+# -------------------------------
 
-
-# def recalculate(player, team, curr, g):
-#     path = team[player]
-#     objectif = path[-1]
-#     p = ProblemeGrid2D(path[curr - 1], objectif, g, 'manhattan')
-#     new_path = astar(p)
-#     path[curr - 1:] = new_path
-#     team.update({player: path})
-#
-#
-# def path_slicing(M, player, team, curr, g):
-#     path = team[player]
-#     if len(path) <= curr + M:
-#         recalculate(player, team, curr, g)
-#     else:
-#         obj = path[curr + M]
-#         p = ProblemeGrid2D(path[curr - 1], obj, g, 'manhattan')
-#         new_path_splice = astar(p)
-#         path[curr - 1: curr + M + 1] = new_path_splice
-#         # print("New path with spliced :", path)
-#         team.update({player: path})
-
-
-def astar_collisions(p, verbose=False, stepwise=False):
-    """
-    application de l'algorithme a-star sans collisions (WiP...)
-    sur un probleme donné
-        """
-
-    startTime = time.time()
-
+def greedyBF(p):
     nodeInit = Noeud(p.init, 0, None)
-    frontiere = [(nodeInit.g + p.h_value(nodeInit.etat, p.but), nodeInit)]
-
+    objectif = p.but
+    frontiere = [(p.h_value(nodeInit.etat, objectif), nodeInit)]
     reserve = {}
-    bestNoeud = nodeInit
-
-    while frontiere != [] and not p.estBut(bestNoeud.etat):
-        (min_f, bestNoeud) = heapq.heappop(frontiere)
+    current = nodeInit
+    while frontiere != [] and not p.estBut(current.etat):  # current != objectif:
+        (min_h, current) = heapq.heappop(frontiere)  # node closest to objectif
+        # do i need a reserve??
+        # => yes lmao u def do :facepalm:
 
         # VERSION 1 --- On suppose qu'un noeud en réserve n'est jamais ré-étendu
         # Hypothèse de consistence de l'heuristique
 
-        if p.immatriculation(bestNoeud.etat) not in reserve:
-            reserve[p.immatriculation(bestNoeud.etat)] = bestNoeud.g  # maj de reserve
-            nouveauxNoeuds = bestNoeud.expand(p)
-            for n in nouveauxNoeuds:
-                f = n.g + p.h_value(n.etat, p.but)
-                heapq.heappush(frontiere, (f, n))
-
-        # TODO: VERSION 2 --- Un noeud en réserve peut revenir dans la frontière
-
-        stop_stepwise = ""
-        if stepwise == True:
-            stop_stepwise = input("Press Enter to continue (s to stop)...")
-            print("best", min_f, "\n", bestNoeud)
-            print("Frontière: \n", frontiere)
-            print("Réserve:", reserve)
-            if stop_stepwise == "s":
-                stepwise = False
-
-    # Mode verbose
-    # Affichage des statistiques (approximatives) de recherche
-    # et les differents etats jusqu'au but
-    if verbose:
-        bestNoeud.trace(p)
-        print("=------------------------------=")
-        print("Nombre de noeuds explorés", len(reserve))
-        c = 0
-        for (f, n) in frontiere:
-            if p.immatriculation(n.etat) not in reserve:
-                c += 1
-        print("Nombre de noeuds de la frontière", c)
-        print("Nombre de noeuds en mémoire:", c + len(reserve))
-        print("temps de calcul:", time.time() - startTime)
-        print("=------------------------------=")
-
-    n = bestNoeud
+        if p.immatriculation(current.etat) not in reserve:
+            reserve[p.immatriculation(current.etat)] = current.g  # maj de reserve
+            new = current.expand(p)
+            for n in new:
+                h = p.h_value(n.etat, objectif)
+                heapq.heappush(frontiere, (h, n))
+    n = current
     path = []
     while n != None:
         path.append(n.etat)
         n = n.pere
     return path[::-1]  # extended slice notation to reverse list
+
+# -------------------------------
+# Collision-checking handling
+# -------------------------------
+
+# can be different for each team !!
+
+# -------------------------------
+# Path recalculation
+# -------------------------------
+
+#
+# def recalculate_greedy(player, team, curr, g):
+#     path = team[player]
+#     print("Old path greedy :", path)
+#     objectif = path[-1]
+#     p = grid2D.ProblemeGrid2D(path[curr - 1], objectif, g, 'manhattan')
+#     new_path = greedyBF(p)
+#     path[curr - 1:] = new_path
+#     print("New path greedy:", path)
+#     team.update({player: path})
+
+
+def recalculate(algo, player, team, curr, g):
+    path = team[player]
+    print("Old path :", path)
+    objectif = path[-1]
+    p = grid2D.ProblemeGrid2D(path[curr - 1], objectif, g, 'manhattan')
+    if algo == 0:
+        new_path = greedyBF(p)
+    else:  # by default
+        new_path = astar(p)
+    path[curr - 1:] = new_path
+    print("New path recalculated:", path)
+
+    team.update({player: path})
+
+
+# -------------------------------
+# Local-repair
+# -------------------------------
+
+def path_slicing(algo, M, player, team, curr, g):
+    path = team[player]
+    if len(path) <= curr + M:
+        recalculate(algo, player, team, curr, g)
+    else:
+        print("Old path :", path)
+        obj = path[curr + M]
+        p = grid2D.ProblemeGrid2D(path[curr - 1], obj, g, 'manhattan')
+        if algo == 0:
+            new_path_splice = greedyBF(p)
+        else:  # by default
+            new_path_splice = astar(p)
+        path[curr - 1: curr + M + 1] = new_path_splice
+        print("New path with splice :", path)
+        team.update({player: path})
+        # print(path)
+
+
+def collision_checking(algo, colCheck, player, team, curr, g):
+    if colCheck == 0:
+        recalculate(algo, player, team, curr, g)
+
+    if colCheck == 1:
+        M = 4
+        print("pathsplicing")
+        path_slicing(algo, M, player, team, curr, g)
 
 # cooperative : in case of future collisions we can :
 #       wait for the next turn (and need to determine which agent will move first

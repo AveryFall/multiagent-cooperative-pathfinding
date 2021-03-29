@@ -38,19 +38,20 @@ def init(_boardname=None):
     game = Game('Cartes/' + name + '.json', SpriteBuilder)
     game.O = Ontology(True, 'SpriteSheet-32x32/tiny_spritesheet_ontology.csv')
     game.populate_sprite_names(game.O)
-    game.fps = 1  # frames per second
+    game.fps = 2  # frames per second
     game.mainiteration()
     player = game.player
 
 
 def main():
     # for arg in sys.argv:
-    iterations = 50  # default
+    iterations = 60  # default
     if len(sys.argv) == 2:
         iterations = int(sys.argv[1])
     print("Iterations: ")
     print(iterations)
 
+    # init("redblob")
     init("exAdvCoopMap")
 
     # -------------------------------
@@ -100,78 +101,63 @@ def main():
     if len(objectifs) < len(initStates):
         raise Exception("There is not enough goals for all the players.")
     random.shuffle(objectifs)
+    # Init states: [(0, 3), (0, 9), (0, 13), (19, 2), (19, 9), (19, 16)]
+
     # objectifs = [(0, 17), (19, 18), (19, 11), (19, 5), (0, 11), (0, 6)]
     # objectifs = [(0, 17), (19, 11), (0, 6), (19, 5), (0, 11), (19, 18)]
     # objectifs = [(0, 6), (19, 18), (0, 17), (19, 11), (19, 5), (0, 11)]
+    # objectifs = [(19, 5), (0, 17), (19, 18), (19, 11), (0, 6), (0, 11)]
     print(objectifs)
     for o in range(len(objectifs)):
         print("Objectif joueur", o, objectifs[o])
 
     # -------------------------------
-    # Collision-checking handling
+    # calcul algo pour la team1
     # -------------------------------
-
-    colCheck = 1  # by default
-    # can be different for each team !!
-
-    # -------------------------------
-    # Path recalculation
-    # -------------------------------
-    def recalculate(player, team, curr, g):
-        path = team[player]
-        objectif = path[-1]
-        p = ProblemeGrid2D(path[curr - 1], objectif, g, 'manhattan')
-        new_path = probleme.astar(p)
-        path[curr - 1:] = new_path
-        team.update({player: path})
-
-    # -------------------------------
-    # Local-repair
-    # -------------------------------
-    def path_slicing(M, player, team, curr, g):
-        print(path)
-        if len(path) <= curr + M:
-            recalculate(player, team, curr, g)
-        else:
-            obj = path[curr + M]
-            p = ProblemeGrid2D(path[curr - 1], obj, g, 'manhattan')
-            new_path_splice = probleme.astar(p)
-            path[curr - 1: curr + M + 1] = new_path_splice
-            # print("New path with splice :", path)
-            team.update({player: path})
-            print(path)
-
-    def collision_checking(player, team, curr, g):
-        if colCheck == 0:
-            recalculate(player, team, curr, g)
-
-        if colCheck == 1:
-            M = 4
-            print("pathsplicing")
-            path_slicing(M, player, team, curr, g)
-
-
-    # -------------------------------
-    # calcul A* pour la team1
-    # -------------------------------
+    chosen_algo1 = 0
 
     g = np.ones((nbLignes, nbCols), dtype=bool)  # par defaut la matrice comprend des True
     for w in wallStates:  # putting False for walls
         g[w] = False
-    for j in team1.keys():
-        p = ProblemeGrid2D(initStates[j], objectifs[j], g, 'manhattan')
-        team1.update({j: probleme.astar(p)})
+    if chosen_algo1 == 0:
+        print("Team 1 uses the Greedy Best First algorithm")
+        for j in team1.keys():
+            p = ProblemeGrid2D(initStates[j], objectifs[j], g, 'manhattan')
+            team1.update({j: probleme.greedyBF(p)})
+
+    elif chosen_algo1 == 1:
+        print("Team 1 uses the A* algorithm")
+        for j in team1.keys():
+            p = ProblemeGrid2D(initStates[j], objectifs[j], g, 'manhattan')
+            team1.update({j: probleme.astar(p)})
+    else:
+        raise Exception("You did not choose an algorithm for team 1")
+    print("Team 1 :", team1)
+    print()
 
     # -------------------------------
-    # calcul A* pour la team2
+    # calcul algo pour la team2
     # -------------------------------
+    chosen_algo2 = 0
 
     g = np.ones((nbLignes, nbCols), dtype=bool)  # par defaut la matrice comprend des True
     for w in wallStates:  # putting False for walls
         g[w] = False
-    for j in team2.keys():
-        p = ProblemeGrid2D(initStates[j], objectifs[j], g, 'manhattan')
-        team2.update({j: probleme.astar(p)})
+
+    if chosen_algo2 == 0:
+        print("Team 2 uses the Greedy Best First algorithm")
+        for j in team2.keys():
+            p = ProblemeGrid2D(initStates[j], objectifs[j], g, 'manhattan')
+            team2.update({j: probleme.greedyBF(p)})
+
+    elif chosen_algo2 == 1:
+        print("Team 2 uses the A* algorithm")
+        for j in team2.keys():
+            p = ProblemeGrid2D(initStates[j], objectifs[j], g, 'manhattan')
+            team2.update({j: probleme.astar(p)})
+    else:
+        raise Exception("You did not choose an algorithm for team 1")
+    print("Team 2 :", team2)
 
     # -------------------------------
     # Boucle principale de déplacements
@@ -224,7 +210,7 @@ def main():
 
                 g[(row, col)] = False
 
-                collision_checking(j, team1, i, g)
+                probleme.collision_checking(chosen_algo2, 0, j, team1, i, g)
 
                 todo.append(j)
                 continue
@@ -279,7 +265,7 @@ def main():
 
                 g[(row, col)] = False
 
-                collision_checking(j, team2, i, g)
+                probleme.collision_checking(chosen_algo2, 0, j, team2, i, g)
 
                 todo.append(j)
                 continue
