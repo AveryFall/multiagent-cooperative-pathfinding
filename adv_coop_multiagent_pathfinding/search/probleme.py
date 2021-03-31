@@ -11,6 +11,7 @@ import heapq
 from abc import ABCMeta, abstractmethod
 import functools
 import time
+# from . import grid3D
 from . import grid2D
 
 
@@ -18,9 +19,18 @@ def distManhattan(p1, p2):
     """ calcule la distance de Manhattan entre le tuple 
         p1 et le tuple p2
         """
-    (x1, y1) = p1
-    (x2, y2) = p2
+    if len(p1) == 3:
+        (x1, y1, t1) = p1
+    else:
+        (x1, y1) = p1
+    if len(p2) == 3:
+        (x2, y2, t2) = p2
+    else:
+        (x2, y2) = p2
     return abs(x1 - x2) + abs(y1 - y2)
+    # (x1, y1) = p1
+    # (x2, y2) = p2
+    # return abs(x1 - x2) + abs(y1 - y2)
 
 
 ###############################################################################
@@ -85,7 +95,12 @@ class Noeud:
         """ étend un noeud avec ces fils
             pour un probleme de taquin p donné
             """
-        nouveaux_fils = [Noeud(s, self.g + p.cost(self.etat, s), self) for s in p.successeurs(self.etat)]
+        nouveaux_fils = []
+        for s in p.successeurs(self.etat):
+            new_f = self.g + p.cost(self.etat, s)
+            n = Noeud(s, new_f, self)
+            nouveaux_fils.append(n)
+        # nouveaux_fils = [Noeud(s, self.g + p.cost(self.etat, s), self) for s in p.successeurs(self.etat)]
         return nouveaux_fils
 
     def expandNext(self, p, k):
@@ -123,7 +138,6 @@ def astar(p, verbose=False, stepwise=False):
         """
 
     startTime = time.time()
-
     nodeInit = Noeud(p.init, 0, None)
     frontiere = [(nodeInit.g + p.h_value(nodeInit.etat, p.but), nodeInit)]
     reserve = {}
@@ -153,8 +167,8 @@ def astar(p, verbose=False, stepwise=False):
             if stop_stepwise == "s":
                 stepwise = False
 
-    # Mode verbose            
-    # Affichage des statistiques (approximatives) de recherche   
+    # Mode verbose
+    # Affichage des statistiques (approximatives) de recherche
     # et les differents etats jusqu'au but
     if verbose:
         bestNoeud.trace(p)
@@ -168,7 +182,7 @@ def astar(p, verbose=False, stepwise=False):
         print("Nombre de noeuds en mémoire:", c + len(reserve))
         print("temps de calcul:", time.time() - startTime)
         print("=------------------------------=")
-
+    print("temps de calcul A*:", time.time() - startTime)
     n = bestNoeud
     path = []
     while n != None:
@@ -181,10 +195,44 @@ def astar(p, verbose=False, stepwise=False):
 # AUTRES ALGOS DE RESOLUTIONS...
 ###############################################################################
 
+# Breadth First Search
+# -------------------------------
+
+def breadthFS(p):
+    """
+        application de l'algorithme Breadth First Search
+        sur un probleme donné
+            """
+    startTime = time.time()
+    nodeInit = Noeud(p.init, 0, None)
+    frontiere = [nodeInit]
+    reserve = {}
+    current = nodeInit
+    while frontiere != [] and not p.estBut(current.etat):  # current != objectif:
+        current = frontiere.pop(0)
+        if p.immatriculation(current.etat) not in reserve:
+            reserve[p.immatriculation(current.etat)] = current.g  # maj de reserve
+            nextNode = current.expand(p)
+            for n in nextNode:
+                frontiere.append(n)
+    print("temps de calcul BreadthFS:", time.time() - startTime)
+    n = current
+    path = []
+    while n is not None:
+        path.append(n.etat)
+        n = n.pere
+    return path[::-1]  # extended slice notation to reverse list
+
+
 # Greedy-Best First
 # -------------------------------
 
 def greedyBF(p):
+    """
+        application de l'algorithme Greedy Best First
+        sur un probleme donné
+            """
+    startTime = time.time()
     nodeInit = Noeud(p.init, 0, None)
     objectif = p.but
     frontiere = [(p.h_value(nodeInit.etat, objectif), nodeInit)]
@@ -192,11 +240,6 @@ def greedyBF(p):
     current = nodeInit
     while frontiere != [] and not p.estBut(current.etat):  # current != objectif:
         (min_h, current) = heapq.heappop(frontiere)  # node closest to objectif
-        # do i need a reserve??
-        # => yes lmao u def do :facepalm:
-
-        # VERSION 1 --- On suppose qu'un noeud en réserve n'est jamais ré-étendu
-        # Hypothèse de consistence de l'heuristique
 
         if p.immatriculation(current.etat) not in reserve:
             reserve[p.immatriculation(current.etat)] = current.g  # maj de reserve
@@ -204,12 +247,14 @@ def greedyBF(p):
             for n in new:
                 h = p.h_value(n.etat, objectif)
                 heapq.heappush(frontiere, (h, n))
+    print("temps de calcul GreedyBF:", time.time() - startTime)
     n = current
     path = []
     while n != None:
         path.append(n.etat)
         n = n.pere
     return path[::-1]  # extended slice notation to reverse list
+
 
 # -------------------------------
 # Collision-checking handling
@@ -221,25 +266,30 @@ def greedyBF(p):
 # Path recalculation
 # -------------------------------
 
-#
-# def recalculate_greedy(player, team, curr, g):
-#     path = team[player]
-#     print("Old path greedy :", path)
-#     objectif = path[-1]
-#     p = grid2D.ProblemeGrid2D(path[curr - 1], objectif, g, 'manhattan')
-#     new_path = greedyBF(p)
-#     path[curr - 1:] = new_path
-#     print("New path greedy:", path)
-#     team.update({player: path})
 
+def recalculateCoop(player, team, i, g, reservation, max_t):
+    path = team[player]
+    curr = (path[i - 1][0], path[i - 1][1], 0)
+    obj = path[-1]
+    p = grid2D.ProblemeGrid3D(curr, obj, g, 'manhattan')
+    reservation[player][i:] = []
+    new_path = coopAstar2(p, reservation, max_t, player)
+    path[i - 1:] = new_path
+    team.update({player: path})
 
 def recalculate(algo, player, team, curr, g):
+    """
+        calcul d'un chemin
+        """
     path = team[player]
     print("Old path :", path)
     objectif = path[-1]
     p = grid2D.ProblemeGrid2D(path[curr - 1], objectif, g, 'manhattan')
+    p3 = grid2D.ProblemeGrid3D(path[curr - 1], objectif, g, 'manhattan')
     if algo == 0:
         new_path = greedyBF(p)
+    elif algo == 1:
+        new_path = breadthFS(p)
     else:  # by default
         new_path = astar(p)
     path[curr - 1:] = new_path
@@ -253,6 +303,9 @@ def recalculate(algo, player, team, curr, g):
 # -------------------------------
 
 def path_slicing(algo, M, player, team, curr, g):
+    """
+    calcul d'une partie d'un chemin
+        """
     path = team[player]
     if len(path) <= curr + M:
         recalculate(algo, player, team, curr, g)
@@ -262,6 +315,8 @@ def path_slicing(algo, M, player, team, curr, g):
         p = grid2D.ProblemeGrid2D(path[curr - 1], obj, g, 'manhattan')
         if algo == 0:
             new_path_splice = greedyBF(p)
+        elif algo == 1:
+            new_path_splice = breadthFS(p)
         else:  # by default
             new_path_splice = astar(p)
         path[curr - 1: curr + M + 1] = new_path_splice
@@ -269,15 +324,72 @@ def path_slicing(algo, M, player, team, curr, g):
         team.update({player: path})
         # print(path)
 
+# -------------------------------
+# Factorised
+# -------------------------------
 
-def collision_checking(algo, colCheck, player, team, curr, g):
+
+def collision_checking(algo, colCheck, player, team, curr, g,):
+    """
+    which alg to use how to handle collisions
+        """
     if colCheck == 0:
         recalculate(algo, player, team, curr, g)
 
     if colCheck == 1:
         M = 4
-        print("pathsplicing")
+        print("path splicing")
         path_slicing(algo, M, player, team, curr, g)
+
+
+def coopAstar2(p, reservation, i, j):
+    """
+    application de l'algorithme a-star cooperatif
+    sur un probleme donné
+        """
+    startTime = time.time()
+    (x, y, t) = p.init[0], p.init[1], 0
+    nodeInit = Noeud((x, y, t), 0, None)
+    frontiere = [(nodeInit.g + p.h_value(nodeInit.etat, p.but), nodeInit)]
+    reserve = {}
+    bestNoeud = nodeInit
+    res = []
+    for x in reservation.values():
+        res += x
+    while frontiere != [] and not p.estBut(bestNoeud.etat):
+        (min_f, bestNoeud) = heapq.heappop(frontiere)
+        if bestNoeud.pere is not None:
+            (x, y, t) = bestNoeud.etat
+            (x1, y1, t1) = bestNoeud.pere.etat
+            # avoid switching positions
+            if (x, y, t - 1) in res and (x1, y1, t1 + 1) in res:  # avoid switching positions
+                continue
+
+        if bestNoeud.etat not in res:
+            if p.estBut(bestNoeud.etat):  # to avoid after teammate has stopped
+                curr_t = bestNoeud.etat[2]
+                for t in range(curr_t + 1, i):
+                    newState = (bestNoeud.etat[0], bestNoeud.etat[1], t)
+                    reservation[j].append(newState)
+                    res.append(newState)
+
+            if p.immatriculation(bestNoeud.etat) not in reserve:
+                reserve[p.immatriculation(bestNoeud.etat)] = bestNoeud.g  # maj de reserve
+                nouveauxNoeuds = bestNoeud.expand(p)
+                for n in nouveauxNoeuds:
+                    f = n.g + p.h_value(n.etat, p.but)
+                    heapq.heappush(frontiere, (f, n))
+        # else:
+        #     bestNoeud = nodeInit
+    print("temps de calcul A* cooperatif :", time.time() - startTime)
+
+    n = bestNoeud
+    path = []
+    while n is not None:
+        reservation[j].append(n.etat)
+        path.append((n.etat[0], n.etat[1]))
+        n = n.pere
+    return path[::-1]
 
 # cooperative : in case of future collisions we can :
 #       wait for the next turn (and need to determine which agent will move first
