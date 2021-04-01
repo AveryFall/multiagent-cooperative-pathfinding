@@ -266,16 +266,18 @@ def greedyBF(p):
 # Path recalculation
 # -------------------------------
 
-
-def recalculateCoop(player, team, i, g, reservation, max_t):
+def recalculateCoop3(player, team, i, g, reservation, max_t):
     path = team[player]
-    curr = (path[i - 1][0], path[i - 1][1], 0)
+    curr = (path[i - 1][0], path[i - 1][1], i - 1)
     obj = path[-1]
     p = grid2D.ProblemeGrid3D(curr, obj, g, 'manhattan')
-    reservation[player][i:] = []
-    new_path = coopAstar2(p, reservation, max_t, player)
+    for t in range(i + 1, len(path)):
+        for x, y in path:
+            reservation[(x, y, t)] = True
+    new_path = coopAstar3(p, reservation, max_t)
     path[i - 1:] = new_path
     team.update({player: path})
+
 
 def recalculate(algo, player, team, curr, g):
     """
@@ -324,12 +326,13 @@ def path_slicing(algo, M, player, team, curr, g):
         team.update({player: path})
         # print(path)
 
+
 # -------------------------------
 # Factorised
 # -------------------------------
 
 
-def collision_checking(algo, colCheck, player, team, curr, g,):
+def collision_checking(algo, colCheck, player, team, curr, g, ):
     """
     which alg to use how to handle collisions
         """
@@ -342,41 +345,69 @@ def collision_checking(algo, colCheck, player, team, curr, g,):
         path_slicing(algo, M, player, team, curr, g)
 
 
-def coopAstar2(p, reservation, i, j):
+def coopAstar3(p, reservation, i):
     """
     application de l'algorithme a-star cooperatif
     sur un probleme donné
         """
     startTime = time.time()
-    (x, y, t) = p.init[0], p.init[1], 0
+    (x, y, t) = p.init  # [0], p.init[1], 0
     nodeInit = Noeud((x, y, t), 0, None)
     frontiere = [(nodeInit.g + p.h_value(nodeInit.etat, p.but), nodeInit)]
     reserve = {}
     bestNoeud = nodeInit
+    # print("init :", bestNoeud.etat)
+    it = 0
     res = []
-    for x in reservation.values():
-        res += x
+    # res = [x for x in reservation.keys() if not reservation[x]]
     while frontiere != [] and not p.estBut(bestNoeud.etat):
+        it += 1
+        # print("passes the while", it)
         (min_f, bestNoeud) = heapq.heappop(frontiere)
+
+        if bestNoeud.etat[2] >= i:
+            bestNoeud = nodeInit
+
         if bestNoeud.pere is not None:
             (x, y, t) = bestNoeud.etat
             (x1, y1, t1) = bestNoeud.pere.etat
-            # avoid switching positions
-            if (x, y, t - 1) in res and (x1, y1, t1 + 1) in res:  # avoid switching positions
+
+            # if x == x1 and y == y1 and t+1 < i:
+            #     l1 = not p.estDehors((x, y-1, t)) and reservation[(x, y-1, t+1)]
+            #     l2 = not p.estDehors((x, y+1, t)) and reservation[(x, y+1, t+1)]
+            #     l3 = not p.estDehors((x-1, y, t)) and reservation[(x-1, y, t+1)]
+            #     l4 = not p.estDehors((x+1, y, t)) and reservation[(x+1, y, t+1)]
+            #
+            #     if l1 or l2 or l3 or l4:
+            #         n = Noeud((x, y, t+1), bestNoeud.g, bestNoeud)
+            #         res.append(n)
+            #         # res[n] = False
+            #         # reservation[(x, y, t + 1)] = False  # pas de pause possible after 2 tours
+            #     # else:
+            #     #     return []
+
+            if not reservation[(x, y, t - 1)] and not reservation[(x1, y1, t1 + 1)]:  # avoid switching positions
                 continue
 
-        if bestNoeud.etat not in res:
+        # if bestNoeud not in res:
+            # print("not in res")
+            # print(res)
+        # if bestNoeud in res:
+        #     continue
+
+        if bestNoeud == nodeInit or reservation[bestNoeud.etat]:  # if free
             if p.estBut(bestNoeud.etat):  # to avoid after teammate has stopped
                 curr_t = bestNoeud.etat[2]
                 for t in range(curr_t + 1, i):
                     newState = (bestNoeud.etat[0], bestNoeud.etat[1], t)
-                    reservation[j].append(newState)
-                    res.append(newState)
+                    reservation[newState] = False
 
             if p.immatriculation(bestNoeud.etat) not in reserve:
+                # print("bestNoeud :", bestNoeud.etat)
                 reserve[p.immatriculation(bestNoeud.etat)] = bestNoeud.g  # maj de reserve
                 nouveauxNoeuds = bestNoeud.expand(p)
                 for n in nouveauxNoeuds:
+                    # print("newNoeud to check:", n.etat)
                     f = n.g + p.h_value(n.etat, p.but)
                     heapq.heappush(frontiere, (f, n))
         # else:
@@ -386,9 +417,13 @@ def coopAstar2(p, reservation, i, j):
     n = bestNoeud
     path = []
     while n is not None:
-        reservation[j].append(n.etat)
+        reservation[n.etat] = False
         path.append((n.etat[0], n.etat[1]))
         n = n.pere
+
+    # for i in range(len(path) - 2):
+    #     if path[1]
+
     return path[::-1]
 
 # cooperative : in case of future collisions we can :

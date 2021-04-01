@@ -40,7 +40,7 @@ def init(_boardname=None):
     game = Game('Cartes/' + name + '.json', SpriteBuilder)
     game.O = Ontology(True, 'SpriteSheet-32x32/tiny_spritesheet_ontology.csv')
     game.populate_sprite_names(game.O)
-    game.fps = 1  # frames per second
+    game.fps = 2  # frames per second
     game.mainiteration()
     player = game.player
 
@@ -53,21 +53,14 @@ def main():
     print("Iterations: ")
     print(iterations)
 
-    # init("redblob")
-    # init("exAdvCoopMap")
     # init("map0")
-    # init("test3")
+    # init("exAdvCoopMap")
     init("exAdvCoopMap_race")
+    # init("exAdvCoopMap_exchange")
+    # init("exAdvCoopMap_mingle")
 
-    # map3:
-    # Init states: [(3, 18), (5, 1), (16, 1), (16, 18)]
-    # t1 : {0: (3, 18), 1: (5, 1)}
-    # t2 : {2: (16, 1), 3: (16, 18)}
-    # [(18, 1), (1, 18), (18, 18), (1, 1)]
-    # Objectif joueur 0 (18, 1)
-    # Objectif joueur 1 (1, 18)
-    # Objectif joueur 2 (18, 18)
-    # Objectif joueur 3 (1, 1)
+    test = False
+    carte = "race"
 
     # -------------------------------
     # Initialisation
@@ -82,6 +75,56 @@ def main():
     players = [o for o in game.layers['joueur']]
     nbPlayers = len(players)
     score = [0] * nbPlayers
+    # states: [(0, 2), (0, 5), (0, 9), (0, 10), (0, 14), (0, 17)]
+
+    # players[0].set_rowcol(0, 2)
+    # players[1].set_rowcol(0, 5)
+    # players[2].set_rowcol(0, 9)
+    # players[3].set_rowcol(0, 10)
+    # players[4].set_rowcol(0, 14)
+    # players[5].set_rowcol(0, 17)
+
+    # states: [(0, 12), (0, 2), (0, 7), (0, 13), (0, 8), (0, 3)]
+    # states: [(0, 15), (0, 3), (0, 17), (0, 4), (0, 14), (0, 19)]
+    #
+    # players[0].set_rowcol(0, 15)
+    # players[1].set_rowcol(0, 3)
+    # players[2].set_rowcol(0, 17)
+    # players[3].set_rowcol(0, 4)
+    # players[4].set_rowcol(0, 14)
+    # players[5].set_rowcol(0, 19)
+
+    # states: [(0, 19), (0, 18), (0, 16), (0, 11), (0, 15), (0, 17)]
+    # players[0].set_rowcol(0, 19)
+    # players[1].set_rowcol(0, 18)
+    # players[2].set_rowcol(0, 16)
+    # players[3].set_rowcol(0, 11)
+    # players[4].set_rowcol(0, 15)
+    # players[5].set_rowcol(0, 17)
+
+    # states: [(0, 17), (0, 15), (0, 18), (0, 11), (0, 14), (0, 8)]
+    # t1: {0: (0, 17), 1: (0, 15), 2: (0, 18)}
+    # t2: {3: (0, 11), 4: (0, 14), 5: (0, 8)}
+
+    # players[0].set_rowcol(0, 1)
+    # players[1].set_rowcol(0, 15)
+    # players[2].set_rowcol(0, 13)
+    # players[3].set_rowcol(0, 17)
+    # players[4].set_rowcol(0, 5)
+    # players[5].set_rowcol(0, 7)
+
+    players[0].set_rowcol(0, 17)
+    players[1].set_rowcol(0, 15)
+    players[2].set_rowcol(0, 18)
+    players[3].set_rowcol(0, 11)
+    players[4].set_rowcol(0, 14)
+    players[5].set_rowcol(0, 8)
+    # states: [(0, 5), (0, 6), (0, 0), (0, 14), (0, 9), (0, 8)]
+    # t1: {0: (0, 5), 1: (0, 6), 2: (0, 0)}
+    # t2: {3: (0, 14), 4: (0, 9), 5: (0, 8)}
+
+    # on localise tous les objets ramassables sur le layer ramassable
+    goalStates = [o.get_rowcol() for o in game.layers['ramassable']]
 
     # on localise tous les états initiaux (loc du joueur)
     # positions initiales des joueurs
@@ -93,19 +136,15 @@ def main():
     half = len(initStates) // 2
     team1 = {initStates.index(x): x for x in initStates[:half]}
     team2 = {initStates.index(x): x for x in initStates[half:]}
+
+    # team1 = {0: (0, 1), 1: (0, 15), 2: (0, 13)}
+    # team2 = {3: (0, 17), 4: (0, 5), 5: (0, 7)}
+
     print("t1 :", team1)
     print("t2 :", team2)
 
-    # on localise tous les objets ramassables
-    # sur le layer ramassable
-    goalStates = [o.get_rowcol() for o in game.layers['ramassable']]
-    # print("Goal states:", goalStates)
-
-    # on localise tous les murs
-    # sur le layer obstacle
+    # on localise tous les murs sur le layer obstacle
     wallStates = [w.get_rowcol() for w in game.layers['obstacle']]
-
-    # print("Wall states:", wallStates)
 
     def legal_position(row, col):
         # une position legale est dans la carte et pas sur un mur
@@ -115,32 +154,29 @@ def main():
     # Attributaion aleatoire des fioles 
     # -------------------------------
 
+    # Init
+    # states: [(0, 1), (0, 15), (0, 13), (0, 17), (0, 5), (0, 7)]
+    # t1: {0: (0, 1), 1: (0, 15), 2: (0, 13)}
+    # t2: {3: (0, 17), 4: (0, 5), 5: (0, 7)}
+    # [(19, 14), (19, 18), (19, 11), (19, 8), (19, 5), (19, 1)]
+
     objectifs = goalStates
     if len(objectifs) < len(initStates):
         raise Exception("There is not enough goals for all the players.")
     random.shuffle(objectifs)
-    # t1: {0: (3, 18), 2: (16, 1)}
-    # t2: {1: (5, 1), 3: (16, 18)}
 
-    # objectifs = [(18, 1), (18, 18), (1, 18), (1, 1)]
+    # objectifs = [(19, 18), (19, 5), (18, 0), (19, 11), (5, 0), (11, 0)]
+    # objectifs = [(19, 14), (19, 18), (19, 11), (19, 8), (19, 5), (19, 1)]
 
-    # t1: {0: (0, 3), 1: (0, 9), 2: (0, 13)}
-    # t2: {3: (19, 2), 4: (19, 9), 5: (19, 16)}
-    # objectifs = [(19, 18), (0, 11), (0, 6), (19, 11), (19, 5), (0, 17)]
+    # objectifs = [(19, 8), (19, 5), (19, 14), (19, 11), (19, 18), (19, 1)]
+    # objectifs =     [(19, 8), (19, 14), (19, 18), (19, 11), (19, 1), (19, 5)]
+    # objectifs =     [(19, 11), (19, 14), (19, 5), (19, 1), (19, 18), (19, 8)]
 
-    # objectifs = [(0, 11), (19, 18), (19, 11), (19, 5), (0, 17), (0, 6)]
+    # objectifs =     [(19, 8), (19, 5), (19, 14), (19, 18), (19, 11), (19, 1)]
 
-    # Init states: [(0, 3), (0, 9), (0, 13), (19, 2), (19, 9), (19, 16)]
-    # objectifs = [(19, 18), (19, 5), (0, 6), (0, 11), (19, 11), (0, 17)] #
-    # objectifs = [(0, 17), (19, 18), (19, 11), (19, 5), (0, 11), (0, 6)]
-    # objectifs = [(0, 17), (19, 11), (0, 6), (19, 5), (0, 11), (19, 18)]
-    # objectifs = [(0, 6), (19, 18), (0, 17), (19, 11), (19, 5), (0, 11)]
-    # objectifs = [(19, 5), (0, 17), (19, 18), (19, 11), (0, 6), (0, 11)]
-
-    # objectifs = [(0, 17), (19, 18), (19, 11), (0, 11), (0, 6), (19, 5)]
-    # objectifs = [(19, 11), (19, 18), (0, 11), (0, 17), (19, 5), (0, 6)]  # this was the one w the step retrace
-    # objectifs = [(19, 18), (0, 17), (19, 11), (0, 6), (0, 11), (19, 5)]
-    objectifs = [(19, 18), (19, 5), (19, 14), (19, 11), (19, 1), (19, 8)]
+    objectifs = [(19, 11), (19, 14), (19, 1), (19, 8), (19, 18), (19, 5)]
+    # [(19, 5), (19, 11), (19, 18), (19, 8), (19, 14), (19, 1)]
+    # objectifs = [(18, 1), (1, 18), (18, 18), (1, 1)]  # map0
     print(objectifs)
     for o in range(len(objectifs)):
         print("Objectif joueur", o, objectifs[o])
@@ -153,8 +189,9 @@ def main():
     # 1 : Breadth First Search
     # 2 : A*
     # 3 : Cooperative A*
-    chosen_algo1 = 3
-    chosen_algo2 = 3
+
+    chosen_algo1 = 2
+    chosen_algo2 = 2
 
     manh = {}
     for j in team1.keys():
@@ -190,14 +227,22 @@ def main():
             team1.update({j: probleme.astar(p)})
 
     elif chosen_algo1 == 3:
-        print("Team 1 uses the Cooperative2 A* algorithm")
-        reservation = {}
+        print("Team 1 uses the Cooperative3 A* algorithm")
+
+        reservation = np.ones((nbLignes, nbCols, iterations), dtype=bool)  # par defaut la matrice comprend des True
+        print("(0, 15, 3) :", reservation[(0, 15, 3)])
+
+        for t in range(iterations):
+            for x, y in wallStates:  # putting False for walls
+                reservation[(x, y, t)] = False
+        print("(0, 15, 3) :", reservation[(0, 15, 3)])
+
         for j in ordre1:
             print("player", j)
-            reservation.update({j: []})
-            p = ProblemeGrid3D(initStates[j], objectifs[j], g, 'manhattan')
-            team1.update({j: probleme.coopAstar2(p, reservation, iterations, j)})
-        # print("res :", reservation)
+            x, y = initStates[j]
+            p = ProblemeGrid3D((x, y, 0), objectifs[j], g, 'manhattan')
+            team1.update({j: probleme.coopAstar3(p, reservation, iterations)})
+            print("(0, 15, 3) :", reservation[(0, 15, 3)])
 
     else:
         raise Exception("You did not choose an algorithm for team 1")
@@ -241,12 +286,17 @@ def main():
             team2.update({j: probleme.astar(p)})
 
     elif chosen_algo2 == 3:
-        print("Team 2 uses the Cooperative2 A* algorithm")
-        reservation2 = {}
+        print("Team 2 uses the Cooperative3 A* algorithm")
+
+        reservation2 = np.ones((nbLignes, nbCols, iterations), dtype=bool)  # par defaut la matrice comprend des True
+        for t in range(iterations):
+            for x, y in wallStates:  # putting False for walls
+                reservation2[(x, y, t)] = False
         for j in ordre2:
-            reservation2.update({j: []})
-            p = ProblemeGrid3D(initStates[j], objectifs[j], g, 'manhattan')
-            team2.update({j: probleme.coopAstar2(p, reservation2, iterations, j)})
+            print("player", j)
+            x, y = initStates[j]
+            p = ProblemeGrid3D((x, y, 0), objectifs[j], g, 'manhattan')
+            team2.update({j: probleme.coopAstar3(p, reservation2, iterations)})
 
     else:
         raise Exception("You did not choose an algorithm for team 2")
@@ -268,6 +318,8 @@ def main():
 
         # ------------ Team 1 ---------------- #
         todo = [x for x in team1.keys()]
+        # print("(0, 15, 3) :", reservation[(0, 15, 3)])
+        # print(g[(0, 15)])
         won = False
         for j in todo:
 
@@ -302,24 +354,28 @@ def main():
                     team1.update({j: path})
                     continue
 
-                g[(row, col)] = False
-
                 if chosen_algo1 == 3:
-                    # path = team1[j]
-                    # curr = (path[i-1][0], path[i-1][1], 0)
-                    # p = ProblemeGrid3D(curr, objectifs[j], g, 'manhattan')
-                    # reservation[j][i:] = []
-                    # new_path = probleme.coopAstar2(p, reservation, iterations, j)
-                    # path[i - 1:] = new_path
-                    # team1.update({j: path})
-                    # print("new path:", path)
-                    probleme.recalculateCoop(j, team1, i, g, reservation, iterations)
+                    for c in collisions:
+                        if collisions.index(c) == j:  # or collisions.index(c) in team2.keys():  # hasn't moved yet
+                            continue
+                        if c in objectifs:
+                            print(c)
+                            g[c] = False  # we assume the player is not gonna move, it's fixed
+                            continue
+                        (x, y) = c
+                        reservation[(x, y, i)] = False
+                    probleme.recalculateCoop3(j, team1, i, g, reservation, iterations)
+                    print("new path :", team1[j])
+
                 else:
+                    for c in collisions:
+                        if collisions.index(c) == j:
+                            continue
+                        g[c] = False  # all the current positions are False for this turn only
                     probleme.collision_checking(chosen_algo1, 0, j, team1, i, g)
 
-                g[(row, col)] = True  # On suppose que la case est liberee au prochain tour. Le prochain tour va la
-                # rebloquer si elle est occupee
-                # cela provoque des loop infinies si les agents sont stuck in a tunnel
+                    for c in collisions:
+                        g[c] = True
 
                 todo.append(j)
                 continue
@@ -372,22 +428,30 @@ def main():
                     team2.update({j: path})
                     continue
 
-                g[(row, col)] = False
-
                 if chosen_algo2 == 3:
-                    probleme.recalculateCoop(j, team2, i, g, reservation2, iterations)
-                    # path = team2[j]
-                    # curr = (path[i-1][0], path[i-1][1], 0)
-                    # p = ProblemeGrid3D(curr, objectifs[j], g, 'manhattan')
-                    # reservation2[j][i:] = []
-                    # new_path = probleme.coopAstar2(p, reservation2, iterations, j)
-                    # path[i - 1:] = new_path
-                    # team2.update({j: path})
+                    print("old path :", path)
+                    for c in collisions:
+                        if collisions.index(c) == j:  # or collisions.index(c) in team2.keys():  # hasn't moved yet
+                            continue
+                        if c in objectifs:
+                            print(c)
+                            g[c] = False  # we assume the player is not gonna move, it's fixed
+                            continue
+                        (x, y) = c
+                        print((x, y, i))
+                        reservation2[(x, y, i)] = False
+
+                    probleme.recalculateCoop3(j, team2, i, g, reservation2, iterations)
+                    print("new path :", team2[j])
 
                 else:
+                    for c in collisions:
+                        if collisions.index(c) == j:
+                            continue
+                        g[c] = False
                     probleme.collision_checking(chosen_algo2, 0, j, team2, i, g)
-
-                g[(row, col)] = True
+                    for c in collisions:
+                        g[c] = True
 
                 todo.append(j)
                 continue
@@ -466,3 +530,9 @@ def main():
 
 if __name__ == '__main__':
     main()
+
+
+
+
+
+
