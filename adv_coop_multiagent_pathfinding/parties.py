@@ -31,9 +31,6 @@ import time
 # ---- Main                ----
 # ---- ---- ---- ---- ---- ----
 
-# scoref1 = 0
-# scoref2 = 0
-# for k in range(3):
 game = Game()
 
 
@@ -43,21 +40,16 @@ def init(_boardname=None):
     game = Game('Cartes/' + name + '.json', SpriteBuilder)
     game.O = Ontology(True, 'SpriteSheet-32x32/tiny_spritesheet_ontology.csv')
     game.populate_sprite_names(game.O)
-    game.fps = 250  # frames per second
+    game.fps = 2  # frames per second
     game.mainiteration()
     player = game.player
 
-
-# i = 0
-# while i < 101:
-#     i += 1
-#     print("\nGame number", i)
 
 def main():
     score1 = 0
     score2 = 0
     tour = 0
-    while tour < 50:
+    while tour < 1:
 
         print("\nGame number",  tour+ 1)
 
@@ -72,12 +64,12 @@ def main():
         print("Iterations: ")
         print(iterations)
 
-        # init("exAdvCoopMap_race")
+        init("exAdvCoopMap_race")
         # init("exAdvCoopMap_exchange")
-        init("exAdvCoopMap_mingle")
-        # carte = "race"
+        # init("exAdvCoopMap_mingle")
+        carte = "race"
         # carte = "exchange"
-        carte = "mingle"
+        # carte = "mingle"
         # -------------------------------
         # Initialisation
         # -------------------------------
@@ -150,8 +142,8 @@ def main():
         half = len(initStates) // 2
         team1 = {initStates.index(x): x for x in initStates[:half]}
         team2 = {initStates.index(x): x for x in initStates[half:]}
-        # print("t1 :", team1)
-        # print("t2 :", team2)
+        print("t1 :", team1)
+        print("t2 :", team2)
 
         # on localise tous les murs sur le layer obstacle
         wallStates = [w.get_rowcol() for w in game.layers['obstacle']]
@@ -175,7 +167,7 @@ def main():
         objectifs = obj2 + obj1
         if carte == "race":
             random.shuffle(objectifs)
-        # print(objectifs)
+        print(objectifs)
         # for o in range(len(objectifs)):
         #     print("Objectif joueur", o, objectifs[o])
 
@@ -226,9 +218,9 @@ def main():
 
         elif chosen_algo1 == 3:
             print("Team 1 uses the Cooperative3 A* algorithm")
-            reservation = np.ones((nbLignes, nbCols, iterations), dtype=bool)  # par defaut la matrice comprend des True
+            reservation = np.ones((nbLignes, nbCols, iterations), dtype=bool)
             for t in range(iterations):
-                for x, y in wallStates:  # putting False for walls
+                for x, y in wallStates:
                     reservation[(x, y, t)] = False
 
             for j in ordre1:
@@ -281,11 +273,10 @@ def main():
 
             print("Team 2 uses the Cooperative3 A* algorithm")
 
-            reservation2 = np.ones((nbLignes, nbCols, iterations),
-                                   dtype=bool)  # par defaut la matrice comprend des True
+            reservation2 = np.ones((nbLignes, nbCols, iterations), dtype=bool)
 
             for t in range(iterations):
-                for x, y in wallStates:  # putting False for walls
+                for x, y in wallStates:
                     reservation2[(x, y, t)] = False
 
             for j in ordre2:
@@ -329,9 +320,6 @@ def main():
 
                     # if j and b are in same team and pos isn't objectif of b
                     if block in team1.keys() and len(team1[block]) > i:
-
-                        # HERE # if b is at objectif AND objectif's row, col is opti in path of a, then b should move!!
-                        # ==> cooperative A* ??
 
                         # b hasn't moved yet and b doesn't want to switch position with j
                         if team1[block][i - 1] == (row, col) and team1[block][i] != path[i - 1]:

@@ -40,7 +40,7 @@ def init(_boardname=None):
     game = Game('Cartes/' + name + '.json', SpriteBuilder)
     game.O = Ontology(True, 'SpriteSheet-32x32/tiny_spritesheet_ontology.csv')
     game.populate_sprite_names(game.O)
-    game.fps = 2  # frames per second
+    game.fps = 1  # frames per second
     game.mainiteration()
     player = game.player
 
@@ -59,8 +59,13 @@ def main():
     # init("exAdvCoopMap_exchange")
     # init("exAdvCoopMap_mingle")
 
-    test = False
-    carte = "race"
+    # 0 : Greedy Best First
+    # 1 : Breadth First Search
+    # 2 : A*
+    # 3 : Cooperative A*
+
+    chosen_algo1 = 2
+    chosen_algo2 = 2
 
     # -------------------------------
     # Initialisation
@@ -184,14 +189,6 @@ def main():
     # -------------------------------
     # calcul algo pour la team1
     # -------------------------------
-
-    # 0 : Greedy Best First
-    # 1 : Breadth First Search
-    # 2 : A*
-    # 3 : Cooperative A*
-
-    chosen_algo1 = 2
-    chosen_algo2 = 2
 
     manh = {}
     for j in team1.keys():
@@ -318,8 +315,6 @@ def main():
 
         # ------------ Team 1 ---------------- #
         todo = [x for x in team1.keys()]
-        # print("(0, 15, 3) :", reservation[(0, 15, 3)])
-        # print(g[(0, 15)])
         won = False
         for j in todo:
 
